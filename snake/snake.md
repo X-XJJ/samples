@@ -44,11 +44,12 @@
 
 1. 设计表示游戏状态的数据结构和数据。
 
+计算机中，一切皆是数据。
+
 贪吃蛇游戏，包括最基本的几个东西。**一条蛇**，**一个食物**以及**边界**。
 更完整的描述是：一条蛇，在玩家的控制下改变移动方向，蛇自己爬行，“吃到”食物，会变长，同时不要碰到游戏边界和自己。
 
-
-经过特别仔细的考虑，需要以下数据来表示：
+经过仔细的考虑和设计，需要以下数据就可以表示这个游戏：
 * 食物的位置
 * 蛇的移动方向
 * 边界的大小。
@@ -59,8 +60,8 @@
 啊，链表，这是我大学生涯痛苦的经历。
 难么？
 码农界有一句名言，叫**不要重复发明轮子**。
-所以像链表这样基础的东西，不需要自己去造，已经有很多人写过了很好的了。如果你想学习，可以，老师至少能找到5种以上链表的实现代码，已经不可能比他们写得更好了。
-示例代码中的链表也不是我自己写的！放在这里完全就是为了完整的演示。
+所以像链表这样基础的东西，不需要自己去造，已经有很多人写过了很好的了。你不可能比他们写得更好了。
+示例代码中的链表也不是自己写的！放在这里完全就是为了完整的演示。
 
 链表的数据类型定义
 ```C
@@ -101,6 +102,14 @@ typedef enum _dirction
 }dirction;
 ```
 
+[关于typedef]
+这是一个C语言的关键字，功能是将一个已有的数据类型**定义为**，或者理解为**重命名**为一个新的数据类型。
+上面是将枚举类型[enum _dirction]和结构体类型[struct _GAME_COORD]，重命名为了一个比较方便记忆和输入的名字。以后的代码中就使用新的名称。
+例如一个更简单的情况：
+```C
+typedef unsigned long       DWORD;
+```
+
 这些数据的类型都定义完成了，然后定义变量。
 
 ```C
@@ -114,8 +123,6 @@ dirction snake_dir;
 // 游戏边界（这是右下，左上为0,0）
 GAME_COORD boundary;
 ```
-
-[关于typedef]
 
 * 蛇爬行的速度（每爬行一步间隔的时间）。
 ```C
@@ -143,7 +150,9 @@ int level = 0;
 
 以上这些数据，和界面的显示是无关的。比如有一些数据，我们没有在这里考虑，比如用来显示食物和蛇的圆圈的**颜色**、**大小**等等。因为这些内容*和游戏逻辑无关*，只在显示的时候用到了。
 
-2. 编写一些函数来操作这些数据。然后完成游戏逻辑功能的函数编写。
+2. 接口和封装
+
+4. 编写一些函数来操作这些数据。然后完成游戏逻辑功能的函数编写。
 
 游戏的过程，就是这些数据变化的过程。所以在游戏过程中，程序会不断的去读和写这些数据。
 下面就是老师设计的去读写这些数据的操作。
@@ -151,23 +160,49 @@ int level = 0;
 ```CPP
 /// snake_and_food.c中的接口函数
 
+// 设置边界坐标
 void SetBoundary(int x, int y);
+
+// 获得边界坐标
 PGAME_COORD GetBoundary();
 
+// 生成新的食物。
 int CreateFood();
+
+// 获得食物的坐标。
 PGAME_COORD GetFood();
 
-void SetDirction(dirction dir);
-dirction GetDirction();
-
+// 创建蛇
 void CreateSnake(dirction dir, int head_x, int head_y, int init_len);
-int SnakeGorwup();
-int SnakeMove();
-int GetSnakeSize();
-PGAME_COORD GetSnakeHead();
-PGAME_COORD GetSnakeTail();
-PGAME_COORD GetSnakeAt(int n);
+
+// 销毁蛇，释放内存资源。
 void DistroySnake();
+
+// 用来移动一步，
+// 移动以后，如果吃到了食物，则生长。
+// 如果碰到了墙或者自己，则死亡，并返回是否死亡的状态。
+int SnakeMove();
+
+// 蛇生长
+int SnakeGorwup();
+
+// 获得蛇的长度
+int GetSnakeSize();
+
+// 获得蛇的第一个节点的坐标
+PGAME_COORD GetSnakeHead();
+
+// 获得蛇的最后一个节点的坐标
+PGAME_COORD GetSnakeTail();
+
+// 按照序号获得蛇的节点的坐标，不能超过蛇的长度，否则返回NULL
+PGAME_COORD GetSnakeAt(int n);
+
+// 改变蛇移动的方向
+void SetDirction(dirction dir);
+
+// 获得当前蛇的方向
+dirction GetDirction();
 ```
 
 以上，我们发所有对游戏数据结构的操作都定义为了函数，有了这些函数，上次的控制程序，调用就完成功能了，而不需要关心数据结构到是如何设计的。这是一种**分层的设计思想**。
@@ -215,18 +250,151 @@ void ListDistoryAndFree(PLIST list);
 /***  获得当前链表大小（节点数量）   ***/
 int ListSize(PLIST list);
 ```
+3. 启动和流程
 
-3. 考虑程序的控制问题，这里可能需要和游戏运行的平台相关了。
+* 数据结构的初始化过程
 
-首先第一个，我们需要处理键盘输入
-如果玩家在键盘上按上下左右键的时候，改变蛇的方向。
+有了上面的那些数据和接口函数作为基础游戏的初始化过程比较容易的完成。
+
+```CPP
+// 游戏的初始化，
+// 创建游戏的内部数据结构和系统对象。
+void CreateGame(HWND hwnd, 
+	DWORD dwInitTimerElapse, 
+	unsigned int one_level_scores,
+	DOUBLE level_speedup_ratio,
+	int boundary_x, int boundary_y,
+	int init_x, int init_y, 
+	int init_len,
+	dirction init_dir)
+{
+	// 设置随机数种子
+	// 需要使用随机数生成食物的位置等。
+	FILETIME ft;
+	GetSystemTimeAsFileTime(&ft);
+	srand(ft.dwLowDateTime);
+
+	dbLevelSpeedupRatio = level_speedup_ratio;
+	dwTimerElapse = dwInitTimerElapse;
+	dwOneLevelScores = one_level_scores;
+
+	// 设置游戏的边界
+	SetBoundary(boundary_x, boundary_y);
+
+	// 创建表示贪吃蛇的数据结构
+	CreateSnake(init_dir, init_x, init_y, init_len);
+
+	// 创建表示食物的数据结构
+	CreateFood();
+
+	// 创建一个计时器
+	// 每经过 dwTimerElapse 毫秒，hwnd窗口（主窗口）就会收到一个WM_TIMER消息。
+	// 计时器是驱动本游戏进行的主要时间线。
+	// dwTimerElapse变量影响游戏进行的快慢变化。
+	SetTimer(hwnd, TIMER_ID, dwTimerElapse, NULL);
+
+}
+```
+
+然后在程序以后，合适的地方，调用CreateGame这个函数：
+
+```CPP
+		CreateGame(hwnd, 
+			INIT_TIMER_ELAPSE,
+			ONE_LEVELS_SCORES,
+			SPEEDUP_RATIO, 
+			MAX_X, MAX_Y,
+			INIT_X, INIT_Y,
+			INIT_SNAKE_LEN,
+			INIT_DIR);
+
+```
+调用CreateGame时，输入的参数都是以宏的方式定义的常量。
+
+```CPP
+// 游戏的参数的设置 
+#define INIT_TIMER_ELAPSE	300	// 初始的时钟周期，确定游戏初始速度
+#define	ONE_LEVELS_SCORES	5	// 每升级一次需要的计分
+#define INIT_SNAKE_LEN		5	// 蛇的长度
+#define SPEEDUP_RATIO		0.8 // 升级以后时间周期（确定游戏速度）提高的比例。
+#define MAX_X		18	// 游戏界面大小
+#define MAX_Y		20	// 游戏界面大小
+#define INIT_X		3	// 蛇的初始位置
+#define INIT_Y		3	// 蛇的初始位置
+#define INIT_DIR	SNAKE_LEFT	// 蛇的初始方向
+```
+
+这么做的原因，是便于代码的阅读。同时如果以后想修改一下这些参数，让游戏变得快一些，界面大一些或者小一些，可以非常便捷。
+这些基本就是程序的主要参数了。
+
+* 入口函数
+
+一个特别的地方，Windows系统中，图形用户界面的程序的入口函数的名称是WinMain，而不是标准c的main函数了。入口函数叫什么名字，只是约定而已。这个没有什么奇怪的，我们以后还会在不同的地方见到不同名称的入口函数。
+
+现在我们只需要知道，在我们这个程序中，程序是从WinMain函数开始执行的。
+
+** 关于Windows数据类型。
+
+前面介绍了C语言关键字 typedef，Windows的接口函数中，使用了大量特有的，通过这种方式定义的类型。
+```CPP
+/********************************************************************************
+* ##########关于Windows数据类型##########
+*
+* Windows在C语言的基础上定义了很多Windows特有的类型。都是通过C语言关键字typedef定义的。
+* Windows类型都是全大写。
+*
+* DWORD LPSTR WPARAM LPARAM HWND等
+* 其中，以'H'大头的数据类型都是句柄
+*
+*******************************************************************************/
+```
+例如Windows的头文件中有这样的内容：
+
+```CPP
+typedef unsigned long       DWORD;
+typedef int                 BOOL;
+typedef unsigned char       BYTE;
+typedef unsigned short      WORD;
+```
+
+```CPP
+typedef struct _SYSTEMTIME {
+    WORD wYear;
+    WORD wMonth;
+    WORD wDayOfWeek;
+    WORD wDay;
+    WORD wHour;
+    WORD wMinute;
+    WORD wSecond;
+    WORD wMilliseconds;
+} SYSTEMTIME, *PSYSTEMTIME, *LPSYSTEMTIME;
+
+```
 
 
-第二个，我们需要让蛇定时移动一步。
+** 关于API函数。
+
+** 关于消息机制。
 
 
-4. 把游戏显示出来。
 
+4. 显示出来
+
+在界面上显示和绘图是单独的一门技术——GDI.
+
+5. 让蛇动起来
+
+
+
+* 初始化过程
+
+* 定时移动一步
+用到了操作系统的机制，计时器——Timer。
+
+
+* 键盘控制蛇的方向
+
+* 升级、加速。
 
 ### 还需要做什么？
 5. 把代码串起来。
